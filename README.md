@@ -1,7 +1,7 @@
-# Folly
+# Sole
 
-Folly is a tiny library to help you trigger error conditions in your application intentionally, like a segfault.
+Sole helps with generating unique identifiers similar to a UUID or ULID but packing in additional metadata to make it useful for storage solutions.
 
 ```ruby
-Folly.raise_segfault
+Sole.bytes #=> ''
 ```
