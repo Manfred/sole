@@ -40,9 +40,10 @@ struct sole_decode_ctx
 };
 
 /**
- * Maximum length of a Sole identifier.
+ * In order to reduce storage requirements for the time we start our EPOCH
+ * at an unusual date.
  */
-#define MAX_SOLE_LENGTH 65535
+#define SOLE_EPOCH 1520680705
 
 /**
  * Convert an unsigned char value to its Base16 encoded alternative.

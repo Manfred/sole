@@ -47,6 +47,11 @@ void sole_decode_init(struct sole_decode_ctx *ctx)
   ctx->left = 0;
 }
 
+long sole_decode_long(char *in)
+{
+  return (decode_map[in[0]] << 4) | decode_map[in[1]];
+}
+
 /**
  * Decodes a single byte from the input. Returns number of decoded characters
  * or -1 in case of unexpected input.
@@ -54,9 +59,7 @@ void sole_decode_init(struct sole_decode_ctx *ctx)
 int sole_decode_single(struct sole_decode_ctx *ctx, char *out, uint8_t in)
 {
   int digit;
-
   if (in >= 0x80) return -1;
-
   digit = decode_map[in];
   switch (digit)
   {
@@ -123,6 +126,24 @@ int sole_decode_finalize(struct sole_decode_ctx *ctx)
   return ctx->left == 0;
 }
 
+VALUE sole_decode_rb(VALUE string)
+{
+  VALUE unpacked;
+  struct sole_decode_ctx ctx;
+  size_t decoded_length;
+  size_t encoded_length = RSTRING_LEN(string);
+  char *decoded = malloc(SOLE_DECODE_LENGTH(encoded_length));
+
+  sole_decode_init(&ctx);
+  sole_decode_update(&ctx, &decoded_length, decoded, RSTRING_LEN(string), StringValueCStr(string));
+  sole_decode_finalize(&ctx);
+
+  unpacked = rb_str_new(decoded, decoded_length);
+  free(decoded);
+  rb_enc_associate(unpacked, rb_enc_find("UTF-8"));
+  return unpacked;
+}
+
 /*
  *  call-seq:
  *    Sole.generate
@@ -132,7 +153,7 @@ int sole_decode_finalize(struct sole_decode_ctx *ctx)
  */
 static VALUE sole_generate(VALUE self)
 {
-  time_t data = time(NULL) - 1520680705;
+  time_t data = time(NULL) - SOLE_EPOCH;
   uint64_t rdata;
 
   static char result[16] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
@@ -204,20 +225,27 @@ static VALUE sole_pack(int argc, VALUE* argv, VALUE self)
  */
 static VALUE sole_unpack(VALUE self, VALUE string)
 {
-  struct sole_decode_ctx ctx;
+  char *t_data;
+  time_t time = SOLE_EPOCH;
   size_t encoded_length = RSTRING_LEN(string);
   char *decoded = malloc(SOLE_DECODE_LENGTH(encoded_length));
-  size_t decoded_length;
-  VALUE raw = rb_str_substr(string, 16, encoded_length);
 
-  sole_decode_init(&ctx);
-  sole_decode_update(&ctx, &decoded_length, decoded, RSTRING_LEN(raw), StringValueCStr(raw));
-  sole_decode_finalize(&ctx);
+  VALUE r_packed_time = rb_str_substr(string, 0, 8);
+  char *packed_time = StringValuePtr(r_packed_time);
 
-  VALUE result = rb_str_new(decoded, decoded_length);
-  free(decoded);
-  rb_enc_associate(result, rb_enc_find("UTF-8"));
-  return rb_str_split(result, sole_separator);
+  for (int i = 0; i < 4; i++) {
+    time += sole_decode_long(packed_time += 2);
+  }
+
+  char buffer[32];
+  strftime(buffer, 32, "%a, %d.%m.%Y %H:%M:%S", localtime(&time));
+  printf("TIME: %s\n", buffer);
+
+  VALUE record = sole_decode_rb(rb_str_substr(string, 16, encoded_length));
+  VALUE unpacked = rb_str_split(record, sole_separator);
+  rb_funcall(unpacked, rb_intern("unshift"), 1, rb_time_new(time, 0));
+
+  return unpacked;
 }
 
 void Init_sole()
