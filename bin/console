@@ -1,0 +1,8 @@
+#!/usr/bin/env ruby
+
+$LOAD_PATH << File.expand_path('../../lib', __FILE__)
+$LOAD_PATH << File.expand_path('../../ext', __FILE__)
+require "sole"
+
+require "irb"
+IRB.start(__FILE__)
